@@ -3,9 +3,10 @@ import type { Metadata } from "next";
 import Form from "next/form";
 import Link from "next/link";
 import { CategoryIcon } from "@/components/icons";
+import { Pagination } from "@/components/pagination";
 import { ProductCard } from "@/components/product-card";
 import { CtaBand, PageHero } from "@/components/sections";
-import { getCategories, getCategory, getProductCounts, getProducts } from "@/lib/catalog";
+import { getCategories, getCategory, getProductCounts, getProductPage } from "@/lib/catalog";
 
 export const metadata: Metadata = {
   title: "Products",
@@ -18,10 +19,11 @@ function first(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function productsHref(category?: string, q?: string) {
+function productsHref(category?: string, q?: string, page?: number) {
   const params = new URLSearchParams();
   if (category) params.set("category", category);
   if (q) params.set("q", q);
+  if (page && page > 1) params.set("page", String(page));
   const qs = params.toString();
   return qs ? `/products?${qs}` : "/products";
 }
@@ -30,12 +32,15 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
   const params = await searchParams;
   const q = first(params.q)?.trim() || undefined;
   const category = await getCategory(first(params.category) ?? "");
+  const requestedPage = Number(first(params.page)) || 1;
 
-  const [categories, counts, products] = await Promise.all([
+  const [categories, counts, result] = await Promise.all([
     getCategories(),
     getProductCounts(),
-    getProducts({ category: category?.slug, q }),
+    getProductPage({ category: category?.slug, q, page: requestedPage }),
   ]);
+  const firstShown = (result.page - 1) * result.pageSize + 1;
+  const lastShown = firstShown + result.items.length - 1;
   const categoryNames = Object.fromEntries(categories.map((c) => [c.slug, c.name]));
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
 
@@ -104,7 +109,16 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
         <section aria-label="Product results" className="min-w-0">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-black/10 pb-4 text-sm">
             <p className="text-neutral-600">
-              <span className="font-bold text-ink">{products.length}</span> {products.length === 1 ? "item" : "items"}
+              {result.pageCount > 1 && (
+                <>
+                  Showing{" "}
+                  <span className="font-bold text-ink">
+                    {firstShown}–{lastShown}
+                  </span>{" "}
+                  of{" "}
+                </>
+              )}
+              <span className="font-bold text-ink">{result.total}</span> {result.total === 1 ? "item" : "items"}
               {q && (
                 <>
                   {" "}
@@ -119,12 +133,19 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
             )}
           </div>
 
-          {products.length > 0 ? (
-            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-              {products.map((p) => (
-                <ProductCard key={p.slug} product={p} categoryName={categoryNames[p.category]} />
-              ))}
-            </div>
+          {result.items.length > 0 ? (
+            <>
+              <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                {result.items.map((p) => (
+                  <ProductCard key={p.slug} product={p} categoryName={categoryNames[p.category]} />
+                ))}
+              </div>
+              <Pagination
+                page={result.page}
+                pageCount={result.pageCount}
+                hrefFor={(page) => productsHref(category?.slug, q, page)}
+              />
+            </>
           ) : (
             <div className="border border-dashed border-black/20 px-6 py-16 text-center">
               <PackageSearch className="mx-auto size-10 text-steel" aria-hidden />

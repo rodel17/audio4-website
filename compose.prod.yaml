@@ -1,5 +1,6 @@
 # Production overrides. Run with:
 #   docker compose -f compose.yaml -f compose.prod.yaml up -d --build
+# Naming the files explicitly skips compose.override.yaml (the dev settings).
 services:
   backend:
     build:
@@ -9,6 +10,4 @@ services:
   frontend:
     build:
       target: prod
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     restart: unless-stopped

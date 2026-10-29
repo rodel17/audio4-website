@@ -2,8 +2,9 @@
 
 ```
 .
-├── compose.yaml        # dev stack (hot reload via Compose Watch)
-├── compose.prod.yaml   # prod overrides (optimized images, restart policy)
+├── compose.yaml            # base services shared by dev and prod
+├── compose.override.yaml   # dev settings (hot reload), loaded automatically
+├── compose.prod.yaml       # prod settings (optimized images, restart policy)
 ├── .env.example
 ├── backend/            # FastAPI  → http://localhost:8000  (docs at /docs)
 └── frontend/           # Next.js  → http://localhost:3000
@@ -13,11 +14,18 @@
 
 ```bash
 cp .env.example .env      # optional
-docker compose up --watch --build
+docker compose up --build
 ```
 
-Compose Watch syncs edits into the containers, so Next.js and uvicorn reload on save.
-Changing `package.json`, `package-lock.json` or `requirements.txt` rebuilds that image automatically.
+Hot reload is on by default: `frontend/` and `backend/` are mounted into the containers, so every
+save is live (Next.js and uvicorn reload within a second or two). No `--watch` flag is needed.
+
+- **Polling:** file-change events from Windows/macOS don't reach containers, so both dev servers
+  poll for changes (`WATCH_POLL_INTERVAL_MS` for Next.js, `WATCHFILES_FORCE_POLLING` for uvicorn).
+  Idle cost is a few percent of one CPU core.
+- **New dependencies:** after adding an npm or pip package, run `docker compose restart frontend`
+  (or `backend`). Each container installs missing packages when it starts.
+- `node_modules` and `.next` stay inside the container, so they never clash with a local Windows install.
 
 ## Production
 

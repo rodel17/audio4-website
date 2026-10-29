@@ -1,11 +1,12 @@
-# Development stack. Start with hot reload:  docker compose up --watch
+# Base stack shared by dev and prod.
+#   Dev (hot reload):  docker compose up --build        (also loads compose.override.yaml)
+#   Prod:              docker compose -f compose.yaml -f compose.prod.yaml up -d --build
 name: audio4
 
 services:
   backend:
     build:
       context: ./backend
-      target: dev
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     environment:
@@ -16,21 +17,13 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-    develop:
-      watch:
-        - action: sync
-          path: ./backend
-          target: /app
-          ignore:
-            - __pycache__/
-            - .venv/
-        - action: rebuild
-          path: ./backend/requirements.txt
 
   frontend:
     build:
       context: ./frontend
-      target: dev
+      args:
+        # Inlined into the browser bundle by the prod build.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     environment:
@@ -41,15 +34,3 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-    develop:
-      watch:
-        - action: sync
-          path: ./frontend
-          target: /app
-          ignore:
-            - node_modules/
-            - .next/
-        - action: rebuild
-          path: ./frontend/package.json
-        - action: rebuild
-          path: ./frontend/package-lock.json

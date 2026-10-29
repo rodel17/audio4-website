@@ -32,6 +32,31 @@ export async function getProducts(filters: { category?: string; q?: string } = {
   });
 }
 
+export type ProductPage = {
+  items: Product[];
+  total: number;
+  page: number;
+  pageCount: number;
+  pageSize: number;
+};
+
+export async function getProductPage(
+  filters: { category?: string; q?: string; page?: number; pageSize?: number } = {},
+): Promise<ProductPage> {
+  const pageSize = filters.pageSize ?? 9;
+  const matches = await getProducts(filters);
+  const pageCount = Math.max(1, Math.ceil(matches.length / pageSize));
+  // Out-of-range pages (e.g. after a filter shrinks the results) land on the nearest valid page.
+  const page = Math.min(Math.max(1, Math.floor(filters.page ?? 1)), pageCount);
+  return {
+    items: matches.slice((page - 1) * pageSize, page * pageSize),
+    total: matches.length,
+    page,
+    pageCount,
+    pageSize,
+  };
+}
+
 export async function getFeaturedProducts(): Promise<Product[]> {
   return products.filter((p) => p.featured);
 }

@@ -1,0 +1,29 @@
+# Development overrides, loaded automatically by `docker compose up`.
+# The source folders are bind-mounted into the containers, so every save is live.
+services:
+  backend:
+    build:
+      target: dev
+    # Install any packages added to requirements.txt since the image was built.
+    command: >
+      sh -c "pip install --quiet --root-user-action=ignore -r requirements.txt &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    volumes:
+      - ./backend:/app
+    environment:
+      # File-change events from Windows/macOS bind mounts don't reach the container, so poll instead.
+      WATCHFILES_FORCE_POLLING: "true"
+
+  frontend:
+    build:
+      target: dev
+    # Sync node_modules with package.json on start, so new dependencies don't need a rebuild.
+    command: sh -c "npm install --no-audit --no-fund && npm run dev"
+    volumes:
+      - ./frontend:/app
+      # Keep the container's own Linux node_modules and build cache instead of the host's.
+      - /app/node_modules
+      - /app/.next
+    environment:
+      # Read by next.config.ts; Turbopack polls for file changes at this interval.
+      WATCH_POLL_INTERVAL_MS: "500"
