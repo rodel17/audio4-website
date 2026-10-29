@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+/* Brand palette sampled from the Audio 4 Design logo. */
+@theme inline {
+  --color-brand: #cf010d;
+  --color-brand-dark: #a3000a;
+  --color-ink: #141414;
+  --color-steel: #6b717c;
+  --color-mist: #f1f2f4;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-anton), Impact, "Arial Narrow", sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #ffffff;
+  color: var(--color-ink);
+}
+
+/* Custom classes live in the components layer so Tailwind utilities can override them. */
+@layer components {
+  /* Heavy, slanted, uppercase lettering like the logo wordmark. */
+  .display {
+    font-family: var(--font-display);
+    font-style: italic;
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+    line-height: 1;
+  }
+
+  /* Slanted buttons: the parallelogram is drawn by ::before so focus outlines aren't clipped. */
+  .btn {
+    --btn-bg: var(--color-brand);
+    --btn-bg-hover: var(--color-brand-dark);
+    --btn-fg: #fff;
+    position: relative;
+    isolation: isolate;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.8rem 1.75rem;
+    color: var(--btn-fg);
+    font-size: 0.875rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .btn::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: var(--btn-bg);
+    transform: skewX(-14deg);
+    transition: background-color 150ms ease;
+  }
+  .btn:hover::before {
+    background: var(--btn-bg-hover);
+  }
+  .btn:focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 4px;
+  }
+  .btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+  .btn-dark {
+    --btn-bg: var(--color-ink);
+    --btn-bg-hover: #000;
+  }
+  .btn-light {
+    --btn-bg: #fff;
+    --btn-bg-hover: var(--color-mist);
+    --btn-fg: var(--color-ink);
+  }
+  .btn-outline {
+    --btn-bg: transparent;
+    --btn-bg-hover: rgb(255 255 255 / 0.1);
+  }
+  .btn-outline::before {
+    box-shadow: inset 0 0 0 2px currentColor;
+  }
+
+  /* The grey slanted bar under "DESIGN" in the logo, reused as a section label. */
+  .tag-bar {
+    display: inline-block;
+    padding: 0.3rem 1.1rem;
+    background: var(--color-steel);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    clip-path: polygon(0.6rem 0, 100% 0, calc(100% - 0.6rem) 100%, 0 100%);
+  }
+  .tag-bar-brand {
+    background: var(--color-brand);
+  }
+}
