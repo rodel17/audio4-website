@@ -1,0 +1,55 @@
+# Development stack. Start with hot reload:  docker compose up --watch
+name: audio4
+
+services:
+  backend:
+    build:
+      context: ./backend
+      target: dev
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    environment:
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    develop:
+      watch:
+        - action: sync
+          path: ./backend
+          target: /app
+          ignore:
+            - __pycache__/
+            - .venv/
+        - action: rebuild
+          path: ./backend/requirements.txt
+
+  frontend:
+    build:
+      context: ./frontend
+      target: dev
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      # Used by server components / route handlers (container-to-container).
+      API_URL: http://backend:8000
+      # Used by browser code (host-to-container).
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    depends_on:
+      backend:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend
+          target: /app
+          ignore:
+            - node_modules/
+            - .next/
+        - action: rebuild
+          path: ./frontend/package.json
+        - action: rebuild
+          path: ./frontend/package-lock.json

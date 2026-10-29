@@ -1,0 +1,14 @@
+# Production overrides. Run with:
+#   docker compose -f compose.yaml -f compose.prod.yaml up -d --build
+services:
+  backend:
+    build:
+      target: prod
+    restart: unless-stopped
+
+  frontend:
+    build:
+      target: prod
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    restart: unless-stopped
