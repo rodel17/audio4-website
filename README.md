@@ -28,6 +28,26 @@ docker compose -f compose.yaml -f compose.prod.yaml up -d --build
 - Frontend runs the Next.js standalone server as a non-root user.
 - Backend runs uvicorn with 2 workers as a non-root user.
 
+## Frontend (catalog site)
+
+A product catalog with no cart and no prices. Visitors browse items and specs, then contact sales for a quotation.
+
+| Route | Purpose |
+|-------|---------|
+| `/` | Hero, how-to-buy steps, categories, featured products, services |
+| `/products` | Catalog with category filter (`?category=`) and search (`?q=`) |
+| `/products/[slug]` | Product details, specifications, "Inquire" / "Call sales" |
+| `/services` | Installation, repair and maintenance services |
+| `/contact` | Inquiry form, pre-filled via `?product=` or `?service=` |
+
+Where to edit content:
+
+- `frontend/lib/site.ts`: company phone, email, address, hours (**currently placeholders**)
+- `frontend/lib/data/*.ts`: sample categories, products and services
+- `frontend/lib/catalog.ts`: the only data-access layer; swap it to call the backend later
+- `frontend/lib/inquiry.ts`: posts the inquiry form to `POST /api/inquiries` (backend not built yet)
+- Product photos: add an `image` path (e.g. `/products/xyz.jpg` in `frontend/public`) to a product; otherwise a branded placeholder is shown
+
 ## How the frontend reaches the backend
 
 | From | Variable | Value |
