@@ -261,7 +261,7 @@ export default function SettingsPage() {
                   value={n.confirmationMessage}
                   onChange={(confirmationMessage) => notify.setDraft({ ...n, confirmationMessage })}
                 />
-                <p className="text-xs text-muted">Emails are sent only when an SMTP server is configured on the backend (SMTP_HOST in .env).</p>
+                <p className="text-xs text-muted">Emails are sent only when an SMTP server.</p>
               </div>
             </Card>
           </div>
