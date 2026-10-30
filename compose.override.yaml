@@ -1,12 +1,20 @@
 # Development overrides, loaded automatically by `docker compose up`.
 # The source folders are bind-mounted into the containers, so every save is live.
 services:
+  db:
+    # Reachable from tools on this computer (pgAdmin, DBeaver…) at localhost:5433.
+    # 5433 avoids clashing with a locally installed PostgreSQL on 5432.
+    ports:
+      - "127.0.0.1:${DB_PORT:-5433}:5432"
+
   backend:
+    image: audio4-backend:dev
     build:
       target: dev
-    # Install any packages added to requirements.txt since the image was built.
+    # Install any packages added to requirements.txt since the image was built, then set up the database.
     command: >
       sh -c "pip install --quiet --root-user-action=ignore -r requirements.txt &&
+             python -m app.init_db &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
     volumes:
       - ./backend:/app
@@ -15,6 +23,7 @@ services:
       WATCHFILES_FORCE_POLLING: "true"
 
   frontend:
+    image: audio4-frontend:dev
     build:
       target: dev
     # Sync node_modules with package.json on start, so new dependencies don't need a rebuild.

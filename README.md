@@ -1,31 +1,76 @@
-# Next.js + FastAPI with Docker Compose
+# Audio 4 Design N Technology Corp. — website + CMS
+
+A product catalog for an electronics shop (sound systems, CCTV, electronics) with an admin CMS.
+There is **no cart and no prices**: visitors browse items and specs, then contact sales for a quotation.
+Every piece of public text, the catalog, and the company details are editable in the admin.
 
 ```
 .
-├── compose.yaml            # base services shared by dev and prod
+├── compose.yaml            # services shared by dev and prod: db, redis, backend, frontend
 ├── compose.override.yaml   # dev settings (hot reload), loaded automatically
 ├── compose.prod.yaml       # prod settings (optimized images, restart policy)
 ├── .env.example
-├── backend/            # FastAPI  → http://localhost:8000  (docs at /docs)
-└── frontend/           # Next.js  → http://localhost:3000
+├── backend/                # FastAPI + SQLAlchemy  → http://localhost:8000 (API docs at /docs)
+└── frontend/               # Next.js public site + /admin  → http://localhost:3000
 ```
 
-## Development
+| Service | Image | Used for |
+|---------|-------|----------|
+| `db` | postgres:18-alpine | Catalog, page content, settings, inquiries, admin accounts |
+| `redis` | redis:8-alpine | Admin sessions, login/inquiry rate limits, cache of public API responses |
+| `backend` | FastAPI | Public API, admin API, image uploads (stored in the `uploads` volume) |
+| `frontend` | Next.js | Public site and admin UI; proxies `/api` and `/uploads` to the backend |
+
+## Getting started
 
 ```bash
-cp .env.example .env      # optional
+cp .env.example .env      # optional: set ADMIN_EMAIL / ADMIN_PASSWORD, DB password, SMTP
 docker compose up --build
 ```
 
+On first start the database is created and filled with the sample catalog, and an admin account is
+created. If `ADMIN_PASSWORD` is empty, a random password is printed once in the backend log:
+
+```bash
+docker compose logs backend | grep "generated password"
+```
+
+Sign in at **http://localhost:3000/admin**. Lost the password? Set a new one:
+
+```bash
+docker compose exec backend python -m app.manage reset-password admin@example.com --password 'new-password'
+docker compose exec backend python -m app.manage create-admin you@company.com "Your Name"   # another admin
+```
+
+## Admin
+
+| Screen | Controls |
+|--------|----------|
+| Dashboard | New/open inquiry counts, recent inquiries, setup checklist |
+| Inquiries | Contact Sales messages: status (New → Contacted → Quoted → Closed won/lost), assignee, internal notes, activity log |
+| Products | Name, web address, category, summary, overview, photos, highlights, specs, published/draft, featured |
+| Categories | Name, web address, description, icon, order, visibility |
+| Page content | All text on Home (plus section order/visibility), Products, Product detail, Services and Contact pages |
+| Services | Service cards, "What's included", icon, order, "How we work" steps |
+| Site settings | Company name, tagline, logo, brand color, phone, email, address, hours, social links, menu, footer, SEO, inquiry emails |
+
+Saving in the admin clears the Redis cache, so changes show on the next page load.
+
+**Inquiry emails** are sent only when `SMTP_HOST` (and related settings) are set in `.env`; recipients and
+the customer confirmation message are set in Site settings.
+
+## Development
+
 Hot reload is on by default: `frontend/` and `backend/` are mounted into the containers, so every
-save is live (Next.js and uvicorn reload within a second or two). No `--watch` flag is needed.
+save is live (Next.js and uvicorn reload within a second or two).
 
 - **Polling:** file-change events from Windows/macOS don't reach containers, so both dev servers
   poll for changes (`WATCH_POLL_INTERVAL_MS` for Next.js, `WATCHFILES_FORCE_POLLING` for uvicorn).
-  Idle cost is a few percent of one CPU core.
 - **New dependencies:** after adding an npm or pip package, run `docker compose restart frontend`
   (or `backend`). Each container installs missing packages when it starts.
-- `node_modules` and `.next` stay inside the container, so they never clash with a local Windows install.
+- **Database schema:** tables are created on start (`python -m app.init_db`), but existing tables are
+  not altered. After changing a model, add a migration tool (Alembic) or recreate the dev database
+  with `docker compose down -v` (this deletes all data).
 
 ## Production
 
@@ -33,44 +78,28 @@ save is live (Next.js and uvicorn reload within a second or two). No `--watch` f
 docker compose -f compose.yaml -f compose.prod.yaml up -d --build
 ```
 
+Before going live, set in `.env`: a strong `POSTGRES_PASSWORD`, `ADMIN_EMAIL`/`ADMIN_PASSWORD`,
+`COOKIE_SECURE=true` (when served over HTTPS), and SMTP settings. Back up the `postgres-data` and
+`uploads` volumes.
+
 - Frontend runs the Next.js standalone server as a non-root user.
 - Backend runs uvicorn with 2 workers as a non-root user.
+- The `/api` and `/uploads` proxy target (`API_URL`) is fixed when the frontend image is built.
 
-## Frontend (catalog site)
+## How the pieces talk
 
-A product catalog with no cart and no prices. Visitors browse items and specs, then contact sales for a quotation.
-
-| Route | Purpose |
-|-------|---------|
-| `/` | Hero, how-to-buy steps, categories, featured products, services |
-| `/products` | Catalog with category filter (`?category=`) and search (`?q=`) |
-| `/products/[slug]` | Product details, specifications, "Inquire" / "Call sales" |
-| `/services` | Installation, repair and maintenance services |
-| `/contact` | Inquiry form, pre-filled via `?product=` or `?service=` |
-
-Where to edit content:
-
-- `frontend/lib/site.ts`: company phone, email, address, hours (**currently placeholders**)
-- `frontend/lib/data/*.ts`: sample categories, products and services
-- `frontend/lib/catalog.ts`: the only data-access layer; swap it to call the backend later
-- `frontend/lib/inquiry.ts`: posts the inquiry form to `POST /api/inquiries` (backend not built yet)
-- Product photos: add an `image` path (e.g. `/products/xyz.jpg` in `frontend/public`) to a product; otherwise a branded placeholder is shown
-
-## How the frontend reaches the backend
-
-| From | Variable | Value |
-|------|----------|-------|
-| Server components / route handlers (inside Docker) | `API_URL` | `http://backend:8000` |
-| Browser code | `NEXT_PUBLIC_API_URL` | `http://localhost:8000` |
-
-`NEXT_PUBLIC_API_URL` is baked into the JS bundle at build time in production, so rebuild the frontend
-after changing it. The backend's allowed browser origins are set by `CORS_ORIGINS` (comma-separated).
+- The **browser** only talks to the frontend. `/api/*` and `/uploads/*` are proxied to the backend,
+  so the admin session cookie is first-party.
+- **Server-rendered pages** call the backend directly at `API_URL` (`http://backend:8000` in Docker).
+- `/admin/*` pages redirect to the sign-in page when there's no session cookie; the backend checks the
+  session on every admin API call.
 
 ## Useful commands
 
 ```bash
 docker compose logs -f backend
-docker compose exec backend pip list
-docker compose exec frontend npm ls
-docker compose down
+docker compose exec db psql -U audio4 -d audio4
+docker compose exec redis redis-cli
+docker compose down          # stop (keeps data)
+docker compose down -v       # stop and delete all data volumes
 ```

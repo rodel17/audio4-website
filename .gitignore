@@ -6,3 +6,9 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+
+# Local progress notes
+PROGRESS.md
+
+# Backend data when run outside Docker
+backend/uploads/

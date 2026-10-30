@@ -2,8 +2,9 @@
 
 import { CircleAlert, CircleCheck, Send } from "lucide-react";
 import { useState } from "react";
+import { telHref } from "@/lib/format";
 import { submitInquiry, type Inquiry } from "@/lib/inquiry";
-import { site } from "@/lib/site";
+import type { ContactPageContent } from "@/lib/types";
 
 type Status = "idle" | "sending" | "sent" | "error";
 
@@ -22,7 +23,21 @@ function Field({ label, htmlFor, required, children }: { label: string; htmlFor:
   );
 }
 
-export function ContactForm({ defaultSubject = "" }: { defaultSubject?: string }) {
+export function ContactForm({
+  content,
+  defaultSubject = "",
+  productSlug = "",
+  serviceSlug = "",
+  phone,
+  email,
+}: {
+  content: ContactPageContent;
+  defaultSubject?: string;
+  productSlug?: string;
+  serviceSlug?: string;
+  phone: string;
+  email: string;
+}) {
   const [status, setStatus] = useState<Status>("idle");
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -32,11 +47,14 @@ export function ContactForm({ defaultSubject = "" }: { defaultSubject?: string }
       name: String(data.get("name") ?? ""),
       email: String(data.get("email") ?? ""),
       phone: String(data.get("phone") ?? ""),
-      company: String(data.get("company") ?? "") || undefined,
+      company: String(data.get("company") ?? ""),
       subject: String(data.get("subject") ?? ""),
-      quantity: String(data.get("quantity") ?? "") || undefined,
+      quantity: String(data.get("quantity") ?? ""),
       preferredContact: (data.get("preferredContact") as Inquiry["preferredContact"]) ?? "either",
       message: String(data.get("message") ?? ""),
+      productSlug,
+      serviceSlug,
+      website: String(data.get("website") ?? ""),
     };
 
     setStatus("sending");
@@ -52,10 +70,8 @@ export function ContactForm({ defaultSubject = "" }: { defaultSubject?: string }
     return (
       <div className="border border-black/10 bg-white p-8 text-center" role="status">
         <CircleCheck className="mx-auto size-12 text-brand" aria-hidden />
-        <h2 className="display mt-4 text-3xl">Inquiry sent</h2>
-        <p className="mx-auto mt-3 max-w-md text-neutral-600">
-          Thank you! Our sales team will get back to you shortly with pricing and availability.
-        </p>
+        <h2 className="display mt-4 text-3xl">{content.successTitle}</h2>
+        <p className="mx-auto mt-3 max-w-md text-neutral-600">{content.successText}</p>
         <button type="button" className="btn btn-dark mt-6" onClick={() => setStatus("idle")}>
           Send another inquiry
         </button>
@@ -65,18 +81,24 @@ export function ContactForm({ defaultSubject = "" }: { defaultSubject?: string }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5 border border-black/10 bg-white p-6 sm:p-8">
+      {/* Honeypot: invisible to people and screen readers; bots that fill it are ignored. */}
+      <div className="absolute -left-[9999px]" aria-hidden="true">
+        <label htmlFor="website">Website</label>
+        <input id="website" name="website" tabIndex={-1} autoComplete="off" />
+      </div>
+
       <div className="grid gap-5 sm:grid-cols-2">
         <Field label="Full name" htmlFor="name" required>
-          <input id="name" name="name" required autoComplete="name" className={inputClass} />
+          <input id="name" name="name" required maxLength={120} autoComplete="name" className={inputClass} />
         </Field>
         <Field label="Company / organization" htmlFor="company">
-          <input id="company" name="company" autoComplete="organization" className={inputClass} />
+          <input id="company" name="company" maxLength={160} autoComplete="organization" className={inputClass} />
         </Field>
         <Field label="Email" htmlFor="email" required>
-          <input id="email" name="email" type="email" required autoComplete="email" className={inputClass} />
+          <input id="email" name="email" type="email" required maxLength={255} autoComplete="email" className={inputClass} />
         </Field>
         <Field label="Phone / mobile" htmlFor="phone" required>
-          <input id="phone" name="phone" type="tel" required autoComplete="tel" className={inputClass} />
+          <input id="phone" name="phone" type="tel" required minLength={3} maxLength={60} autoComplete="tel" className={inputClass} />
         </Field>
       </div>
 
@@ -86,25 +108,19 @@ export function ContactForm({ defaultSubject = "" }: { defaultSubject?: string }
             id="subject"
             name="subject"
             required
+            maxLength={200}
             defaultValue={defaultSubject}
             placeholder="e.g. 8-camera CCTV kit with installation"
             className={inputClass}
           />
         </Field>
         <Field label="Quantity" htmlFor="quantity">
-          <input id="quantity" name="quantity" inputMode="numeric" placeholder="e.g. 4" className={inputClass} />
+          <input id="quantity" name="quantity" inputMode="numeric" maxLength={40} placeholder="e.g. 4" className={inputClass} />
         </Field>
       </div>
 
       <Field label="Message" htmlFor="message" required>
-        <textarea
-          id="message"
-          name="message"
-          required
-          rows={5}
-          placeholder="Tell us about your project, location and timeline so we can prepare an accurate quotation."
-          className={inputClass}
-        />
+        <textarea id="message" name="message" required maxLength={5000} rows={5} placeholder={content.messagePlaceholder} className={inputClass} />
       </Field>
 
       <fieldset>
@@ -134,12 +150,12 @@ export function ContactForm({ defaultSubject = "" }: { defaultSubject?: string }
           <CircleAlert className="mt-0.5 size-5 shrink-0 text-brand" aria-hidden />
           <p>
             We couldn&apos;t send your inquiry right now. Please call us at{" "}
-            <a href={site.phoneHref} className="font-bold text-brand underline">
-              {site.phone}
+            <a href={telHref(phone)} className="font-bold text-brand underline">
+              {phone}
             </a>{" "}
             or email{" "}
-            <a href={`mailto:${site.email}`} className="font-bold text-brand underline">
-              {site.email}
+            <a href={`mailto:${email}`} className="font-bold text-brand underline">
+              {email}
             </a>
             .
           </p>
@@ -147,10 +163,10 @@ export function ContactForm({ defaultSubject = "" }: { defaultSubject?: string }
       )}
 
       <div className="flex flex-col gap-4 pt-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-neutral-500">We&apos;ll only use your details to respond to this inquiry.</p>
+        <p className="text-xs text-neutral-500">{content.privacyNote}</p>
         <button type="submit" className="btn" disabled={status === "sending"}>
           <Send className="size-4" aria-hidden />
-          {status === "sending" ? "Sending…" : "Send inquiry"}
+          {status === "sending" ? "Sending…" : content.submitLabel}
         </button>
       </div>
     </form>

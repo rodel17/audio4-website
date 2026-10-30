@@ -2,12 +2,20 @@
 #   docker compose -f compose.yaml -f compose.prod.yaml up -d --build
 # Naming the files explicitly skips compose.override.yaml (the dev settings).
 services:
+  db:
+    restart: unless-stopped
+
+  redis:
+    restart: unless-stopped
+
   backend:
+    image: audio4-backend:prod
     build:
       target: prod
     restart: unless-stopped
 
   frontend:
+    image: audio4-frontend:prod
     build:
       target: prod
     restart: unless-stopped

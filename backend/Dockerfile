@@ -13,12 +13,14 @@ RUN pip install -r requirements.txt
 FROM base AS dev
 COPY . .
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["sh", "-c", "python -m app.init_db && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]
 
 # ---- Production ----
 FROM base AS prod
-RUN useradd --create-home --uid 1001 appuser
+RUN useradd --create-home --uid 1001 appuser \
+    && mkdir -p /data/uploads && chown -R appuser:appuser /data
 COPY --chown=appuser:appuser . .
 USER appuser
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--proxy-headers"]
+# Tables and seed data are set up once, before the workers start.
+CMD ["sh", "-c", "python -m app.init_db && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2 --proxy-headers"]

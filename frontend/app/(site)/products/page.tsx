@@ -2,16 +2,16 @@ import { PackageSearch, Search } from "lucide-react";
 import type { Metadata } from "next";
 import Form from "next/form";
 import Link from "next/link";
-import { CategoryIcon } from "@/components/icons";
+import { NamedIcon } from "@/components/icons";
 import { Pagination } from "@/components/pagination";
 import { ProductCard } from "@/components/product-card";
 import { CtaBand, PageHero } from "@/components/sections";
-import { getCategories, getCategory, getProductCounts, getProductPage } from "@/lib/catalog";
+import { getCategories, getContent, getProductPage } from "@/lib/catalog";
 
-export const metadata: Metadata = {
-  title: "Products",
-  description: "Browse speakers, amplifiers, mixers, microphones, CCTV systems, cables and accessories.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const text = await getContent("products");
+  return { title: text.title, description: text.description };
+}
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -31,30 +31,26 @@ function productsHref(category?: string, q?: string, page?: number) {
 export default async function ProductsPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const q = first(params.q)?.trim() || undefined;
-  const category = await getCategory(first(params.category) ?? "");
   const requestedPage = Number(first(params.page)) || 1;
 
-  const [categories, counts, result] = await Promise.all([
-    getCategories(),
-    getProductCounts(),
-    getProductPage({ category: category?.slug, q, page: requestedPage }),
-  ]);
+  const [text, categories] = await Promise.all([getContent("products"), getCategories()]);
+  const category = categories.find((c) => c.slug === first(params.category));
+  const result = await getProductPage({ category: category?.slug, q, page: requestedPage, pageSize: 9 });
   const firstShown = (result.page - 1) * result.pageSize + 1;
   const lastShown = firstShown + result.items.length - 1;
-  const categoryNames = Object.fromEntries(categories.map((c) => [c.slug, c.name]));
-  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const total = categories.reduce((sum, c) => sum + c.productCount, 0);
 
   const filters = [
-    { slug: undefined, name: "All products", count: total },
-    ...categories.map((c) => ({ slug: c.slug, name: c.name, count: counts[c.slug] ?? 0 })),
+    { slug: undefined, name: "All products", count: total, icon: undefined },
+    ...categories.map((c) => ({ slug: c.slug, name: c.name, count: c.productCount, icon: c.icon })),
   ];
 
   return (
     <>
       <PageHero
-        eyebrow="Catalog"
-        title={category?.name ?? "Products"}
-        description={category?.description ?? "Browse our range and check the specs. Prices are available on request from our sales team."}
+        eyebrow={text.eyebrow}
+        title={category?.name ?? text.title}
+        description={category?.description || text.description}
       />
 
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[16rem_1fr]">
@@ -69,7 +65,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
               name="q"
               type="search"
               defaultValue={q}
-              placeholder="Search products…"
+              placeholder={text.searchPlaceholder}
               className="w-full border border-black/15 py-3 pr-11 pl-4 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
             />
             <button type="submit" aria-label="Search" className="absolute inset-y-0 right-0 grid w-11 place-items-center text-steel hover:text-brand">
@@ -94,7 +90,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
                       }`}
                     >
                       <span className="flex items-center gap-2.5">
-                        {f.slug && <CategoryIcon slug={f.slug} className="size-4 max-lg:hidden" />}
+                        {f.icon && <NamedIcon name={f.icon} className="size-4 max-lg:hidden" />}
                         {f.name}
                       </span>
                       <span className={`text-xs ${active ? "opacity-80" : "text-neutral-400"}`}>{f.count}</span>
@@ -137,7 +133,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
             <>
               <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
                 {result.items.map((p) => (
-                  <ProductCard key={p.slug} product={p} categoryName={categoryNames[p.category]} />
+                  <ProductCard key={p.slug} product={p} quoteLabel={text.cardQuoteLabel} inquireLabel={text.cardInquireLabel} />
                 ))}
               </div>
               <Pagination
@@ -149,12 +145,10 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
           ) : (
             <div className="border border-dashed border-black/20 px-6 py-16 text-center">
               <PackageSearch className="mx-auto size-10 text-steel" aria-hidden />
-              <h2 className="mt-4 text-lg font-bold">No items found</h2>
-              <p className="mx-auto mt-2 max-w-md text-sm text-neutral-600">
-                Can&apos;t find what you&apos;re looking for? We can source many items on request — ask our sales team.
-              </p>
+              <h2 className="mt-4 text-lg font-bold">{text.emptyTitle}</h2>
+              <p className="mx-auto mt-2 max-w-md text-sm text-neutral-600">{text.emptyText}</p>
               <Link href="/contact" className="btn mt-6">
-                Ask our sales team
+                {text.emptyButtonLabel}
               </Link>
             </div>
           )}

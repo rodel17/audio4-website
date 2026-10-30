@@ -3,10 +3,16 @@ import {
   Cctv,
   ClipboardCheck,
   Gauge,
+  Handshake,
+  Headset,
+  Lightbulb,
   Mic,
+  Monitor,
   Network,
   Package,
+  Radio,
   Ruler,
+  ShieldCheck,
   SlidersVertical,
   Speaker,
   Wrench,
@@ -14,30 +20,31 @@ import {
   type LucideProps,
 } from "lucide-react";
 
-const categoryIcons: Record<string, LucideIcon> = {
-  speakers: Speaker,
-  amplifiers: Gauge,
-  "mixers-processors": SlidersVertical,
-  microphones: Mic,
-  cctv: Cctv,
-  "cables-accessories": Cable,
+// Icons that categories, services and "why us" reasons can use. The names are stored in the
+// database, so keep them in sync with IconName in backend/app/schemas.py.
+export const icons: Record<string, { label: string; Icon: LucideIcon }> = {
+  speaker: { label: "Speaker", Icon: Speaker },
+  gauge: { label: "Amplifier", Icon: Gauge },
+  sliders: { label: "Mixer", Icon: SlidersVertical },
+  mic: { label: "Microphone", Icon: Mic },
+  cctv: { label: "CCTV camera", Icon: Cctv },
+  cable: { label: "Cable", Icon: Cable },
+  radio: { label: "Radio", Icon: Radio },
+  network: { label: "Network", Icon: Network },
+  monitor: { label: "Monitor", Icon: Monitor },
+  lightbulb: { label: "Lighting", Icon: Lightbulb },
+  wrench: { label: "Repair", Icon: Wrench },
+  clipboard: { label: "Checklist", Icon: ClipboardCheck },
+  ruler: { label: "Survey", Icon: Ruler },
+  shield: { label: "Quality", Icon: ShieldCheck },
+  handshake: { label: "Deal", Icon: Handshake },
+  headset: { label: "Support", Icon: Headset },
+  package: { label: "Package", Icon: Package },
 };
 
-const serviceIcons: Record<string, LucideIcon> = {
-  "sound-system-installation": Speaker,
-  "cctv-installation": Cctv,
-  "repair-servicing": Wrench,
-  "preventive-maintenance": ClipboardCheck,
-  "site-survey-consultation": Ruler,
-  "structured-cabling": Network,
-};
+export const iconNames = Object.keys(icons);
 
-export function CategoryIcon({ slug, ...props }: { slug: string } & LucideProps) {
-  const Icon = categoryIcons[slug] ?? Package;
-  return <Icon aria-hidden {...props} />;
-}
-
-export function ServiceIcon({ slug, ...props }: { slug: string } & LucideProps) {
-  const Icon = serviceIcons[slug] ?? Wrench;
+export function NamedIcon({ name, ...props }: { name: string } & LucideProps) {
+  const Icon = icons[name]?.Icon ?? Package;
   return <Icon aria-hidden {...props} />;
 }

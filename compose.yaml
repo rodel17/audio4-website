@@ -3,34 +3,81 @@
 #   Prod:              docker compose -f compose.yaml -f compose.prod.yaml up -d --build
 name: audio4
 
+x-db-env: &db-env
+  POSTGRES_USER: ${POSTGRES_USER:-audio4}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-audio4}
+  POSTGRES_DB: ${POSTGRES_DB:-audio4}
+
 services:
+  db:
+    image: postgres:18-alpine
+    environment: *db-env
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    # Snapshot to disk so admin sessions survive a restart.
+    command: ["redis-server", "--save", "60", "1"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   backend:
     build:
       context: ./backend
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-audio4}:${POSTGRES_PASSWORD:-audio4}@db:5432/${POSTGRES_DB:-audio4}
+      REDIS_URL: redis://redis:6379/0
+      UPLOAD_DIR: /data/uploads
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      # First admin account (only used when no admin exists yet).
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 20s
 
   frontend:
     build:
       context: ./frontend
-      args:
-        # Inlined into the browser bundle by the prod build.
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     environment:
-      # Used by server components / route handlers (container-to-container).
+      # Server-side fetches and the /api and /uploads proxy go to the backend over the Docker network.
       API_URL: http://backend:8000
-      # Used by browser code (host-to-container).
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     depends_on:
       backend:
         condition: service_healthy
+
+volumes:
+  postgres-data:
+  redis-data:
+  uploads:

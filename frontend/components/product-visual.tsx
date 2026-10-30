@@ -1,19 +1,21 @@
-import Image from "next/image";
 import type { Product } from "@/lib/types";
-import { CategoryIcon } from "./icons";
+import { NamedIcon } from "./icons";
 
-// Shows the product photo, or a branded placeholder until real photos are added.
-export function ProductVisual({ product, className = "" }: { product: Product; className?: string }) {
-  if (product.image) {
+// Shows the product's main photo, or a branded placeholder until a photo is uploaded.
+export function ProductVisual({
+  product,
+  image = product.images[0],
+  className = "",
+}: {
+  product: Pick<Product, "name" | "images" | "categoryIcon">;
+  image?: string;
+  className?: string;
+}) {
+  if (image) {
     return (
       <div className={`relative overflow-hidden bg-white ${className}`}>
-        <Image
-          src={product.image}
-          alt={product.name}
-          fill
-          sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-          className="object-contain p-6"
-        />
+        {/* eslint-disable-next-line @next/next/no-img-element -- photos are uploaded through the admin */}
+        <img src={image} alt={product.name} className="absolute inset-0 size-full object-contain p-4" loading="lazy" />
       </div>
     );
   }
@@ -24,7 +26,7 @@ export function ProductVisual({ product, className = "" }: { product: Product; c
       <div className="absolute inset-y-0 -right-8 w-1/4 -skew-x-12 bg-brand" />
       <div className="absolute inset-y-0 right-[24%] w-2 -skew-x-12 bg-steel" />
       <div className="absolute inset-0 grid place-items-center">
-        <CategoryIcon slug={product.category} className="size-1/3 text-white" strokeWidth={1.1} />
+        <NamedIcon name={product.categoryIcon} className="size-1/3 text-white" strokeWidth={1.1} />
       </div>
     </div>
   );

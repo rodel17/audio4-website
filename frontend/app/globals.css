@@ -1,12 +1,22 @@
 @import "tailwindcss";
 
-/* Brand palette sampled from the Audio 4 Design logo. */
-@theme inline {
+/* Brand palette sampled from the Audio 4 Design logo.
+   --color-brand is overridden at runtime from Site settings (see app/layout.tsx),
+   so these utilities reference the variable instead of inlining the value. */
+@theme {
   --color-brand: #cf010d;
-  --color-brand-dark: #a3000a;
+  --color-brand-dark: color-mix(in oklab, var(--color-brand) 78%, black);
   --color-ink: #141414;
   --color-steel: #6b717c;
   --color-mist: #f1f2f4;
+}
+
+/* Admin palette. */
+@theme inline {
+  --color-canvas: #f5f6f7;
+  --color-line: #e4e6e9;
+  --color-field: #d5d8dc;
+  --color-muted: #5b6068;
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-anton), Impact, "Arial Narrow", sans-serif;

@@ -7,14 +7,15 @@ export type Inquiry = {
   quantity?: string;
   preferredContact: "phone" | "email" | "either";
   message: string;
+  productSlug?: string;
+  serviceSlug?: string;
+  // Honeypot field: hidden from visitors, left empty by real people.
+  website?: string;
 };
 
-// Sends a sales inquiry to the backend.
-// The backend endpoint (POST /api/inquiries) is not implemented yet, so this
-// currently fails and the form falls back to showing the phone and email.
+// Sends a sales inquiry to the backend (proxied through Next.js at /api).
 export async function submitInquiry(inquiry: Inquiry): Promise<void> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-  const res = await fetch(`${apiUrl}/api/inquiries`, {
+  const res = await fetch("/api/inquiries", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(inquiry),
