@@ -38,11 +38,14 @@ Then open the web ports in Oracle's network firewall:
 ```bash
 ssh ubuntu@<server-ip>
 
-# Oracle's Ubuntu images also block ports in the server's own firewall:
-sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
-sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
-sudo iptables -I INPUT 6 -m state --state NEW -p udp --dport 443 -j ACCEPT
+# Oracle's Ubuntu images also block ports in the server's own firewall. Insert the web ports just
+# above its final REJECT rule (its position differs between images, so look it up):
+REJECT_AT=$(sudo iptables -L INPUT --line-numbers | awk '$2 == "REJECT" {print $1; exit}')
+sudo iptables -I INPUT "$REJECT_AT" -m state --state NEW -p udp --dport 443 -j ACCEPT
+sudo iptables -I INPUT "$REJECT_AT" -m state --state NEW -p tcp --dport 443 -j ACCEPT
+sudo iptables -I INPUT "$REJECT_AT" -m state --state NEW -p tcp --dport 80 -j ACCEPT
 sudo netfilter-persistent save
+sudo iptables -L INPUT --line-numbers   # 80 and 443 must appear ABOVE the REJECT line
 
 # Docker
 curl -fsSL https://get.docker.com | sudo sh
