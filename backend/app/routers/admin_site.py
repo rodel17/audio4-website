@@ -83,7 +83,7 @@ async def put_content(key: str, request: Request, db: Session = Depends(get_db))
     try:
         value = CONTENT_MODELS[key].model_validate(await request.json())
     except ValidationError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, exc.errors(include_url=False, include_context=False))
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, exc.errors(include_url=False, include_context=False))
     except ValueError:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid JSON")
     save_content(db, key, value)
@@ -113,7 +113,7 @@ def _image_extension(head: bytes) -> str | None:
 async def upload_image(file: UploadFile) -> dict:
     data = await file.read(MAX_UPLOAD_BYTES + 1)
     if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "Images must be 5 MB or smaller")
+        raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "Images must be 5 MB or smaller")
     ext = _image_extension(data[:16])
     if ext is None:
         raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "Upload a JPG, PNG, WebP or GIF image")

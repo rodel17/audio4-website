@@ -1,5 +1,7 @@
 # Audio 4 Design N Technology Corp. — website + CMS
 
+[![CI](https://github.com/rodel17/audio4-website/actions/workflows/ci.yml/badge.svg)](https://github.com/rodel17/audio4-website/actions/workflows/ci.yml)
+
 A product catalog for an electronics shop (sound systems, CCTV, electronics) with an admin CMS.
 There is **no cart and no prices**: visitors browse items and specs, then contact sales for a quotation.
 Every piece of public text, the catalog, and the company details are editable in the admin.
@@ -74,6 +76,29 @@ save is live (Next.js and uvicorn reload within a second or two).
 - **Database schema:** tables are created on start (`python -m app.init_db`), but existing tables are
   not altered. After changing a model, add a migration tool (Alembic) or recreate the dev database
   with `docker compose down -v` (this deletes all data).
+
+## Tests and CI
+
+**CI** (GitHub Actions, [.github/workflows/ci.yml](.github/workflows/ci.yml)) runs on every push to `main` and every pull request:
+
+| Job | What it checks |
+|-----|----------------|
+| Backend tests | 39 API tests (pytest) against real Postgres and Redis service containers |
+| Frontend | `npm run typecheck` and a production `next build` |
+| Production images | Compose files are valid; backend and frontend `prod` images build |
+
+**Run the backend tests locally** (uses a separate `audio4_test` database and Redis database 15; your dev data is untouched):
+
+```bash
+docker compose exec db createdb -U audio4 audio4_test        # once
+docker compose exec backend pip install -r requirements-dev.txt
+docker compose exec -e TEST_DATABASE_URL=postgresql+psycopg://audio4:audio4@db:5432/audio4_test                     -e TEST_REDIS_URL=redis://redis:6379/15 backend python -m pytest
+```
+
+The tests refuse to run unless the database name contains `test`, because they wipe and re-seed it.
+They never send email.
+
+**Frontend checks:** `cd frontend && npm run typecheck && npm run build`
 
 ## Production
 

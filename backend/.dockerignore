@@ -8,3 +8,6 @@ venv/
 Dockerfile
 .dockerignore
 uploads/
+tests/
+requirements-dev.txt
+pytest.ini
