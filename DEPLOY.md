@@ -147,10 +147,12 @@ whole line printed above (`ssh-ed25519 AAAA… github-actions-deploy`), and note
 echo 'restrict,command="cd /home/ubuntu/audio4 && git pull --ff-only --quiet && sh scripts/deploy.sh" <PUBLIC KEY>' >> ~/.ssh/authorized_keys
 ```
 
-**c. Test it** (on your PC). This runs a real deploy and prints its progress; it can't open a shell:
+**c. Test it** (on your PC), once `scripts/deploy.sh` is on `main` (i.e. after your first merge to `main`
+containing it; until then the server answers `cannot open scripts/deploy.sh`, which means the key itself works).
+This runs a real deploy and prints its progress; it can't open a shell:
 
 ```powershell
-ssh -i "$HOME\.ssh\audio4_deploy" ubuntu@<server-ip>
+ssh -T -i "$HOME\.ssh\audio4_deploy" ubuntu@<server-ip>
 ```
 
 **d. Add the secrets to GitHub:** repository **Settings → Environments → New environment** named
