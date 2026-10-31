@@ -1,0 +1,19 @@
+# Production entry point. SITE_ADDRESS comes from .env (e.g. audio4design.duckdns.org).
+# Caddy obtains and renews the HTTPS certificate automatically and redirects HTTP to HTTPS.
+# It also replaces any X-Forwarded-For header sent by visitors with their real IP, which the
+# backend uses for rate limiting.
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+		-X-Powered-By
+	}
+
+	reverse_proxy frontend:3000
+}

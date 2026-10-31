@@ -1,0 +1,5 @@
+# Files used on the Linux server must keep Unix line endings, even when edited on Windows.
+*.sh text eol=lf
+caddy/Caddyfile text eol=lf
+*.yaml text eol=lf
+.env.example text eol=lf

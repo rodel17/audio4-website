@@ -12,3 +12,9 @@ PROGRESS.md
 
 # Backend data when run outside Docker
 backend/uploads/
+
+# TypeScript build cache
+*.tsbuildinfo
+
+# Production backups (scripts/backup.sh)
+backups/

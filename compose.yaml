@@ -32,11 +32,11 @@ services:
       timeout: 5s
       retries: 10
 
+  # No ports are published here: in production only Caddy (compose.prod.yaml) is reachable from
+  # outside, and in development compose.override.yaml publishes them for local access.
   backend:
     build:
       context: ./backend
-    ports:
-      - "${BACKEND_PORT:-8000}:8000"
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-audio4}:${POSTGRES_PASSWORD:-audio4}@db:5432/${POSTGRES_DB:-audio4}
       REDIS_URL: redis://redis:6379/0
@@ -68,8 +68,6 @@ services:
   frontend:
     build:
       context: ./frontend
-    ports:
-      - "${FRONTEND_PORT:-3000}:3000"
     environment:
       # Server-side fetches and the /api and /uploads proxy go to the backend over the Docker network.
       API_URL: http://backend:8000

@@ -1,21 +1,65 @@
 # Production overrides. Run with:
 #   docker compose -f compose.yaml -f compose.prod.yaml up -d --build
+# (or set COMPOSE_FILE=compose.yaml:compose.prod.yaml in the server's .env and use plain `docker compose`).
 # Naming the files explicitly skips compose.override.yaml (the dev settings).
+#
+# Only Caddy is reachable from outside (ports 80/443). It gets HTTPS certificates automatically for
+# SITE_ADDRESS and forwards everything to the frontend, which proxies /api and /uploads to the backend.
+
+# Cap each container's logs so they can't fill the server's disk.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?Set SITE_ADDRESS in .env to your domain, e.g. audio4design.duckdns.org}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - frontend
+    logging: *logging
+
   db:
     restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a strong POSTGRES_PASSWORD in .env (letters and numbers only)}
+    logging: *logging
 
   redis:
     restart: unless-stopped
+    logging: *logging
 
   backend:
     image: audio4-backend:prod
     build:
       target: prod
     restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-audio4}:${POSTGRES_PASSWORD:?Set a strong POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-audio4}
+      # The site is always served over HTTPS by Caddy, so the admin cookie is HTTPS-only.
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://${SITE_ADDRESS}}
+    logging: *logging
 
   frontend:
     image: audio4-frontend:prod
     build:
       target: prod
     restart: unless-stopped
+    logging: *logging
+
+volumes:
+  caddy-data:
+  caddy-config:

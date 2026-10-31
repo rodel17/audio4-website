@@ -11,6 +11,8 @@ services:
     image: audio4-backend:dev
     build:
       target: dev
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
     # Install any packages added to requirements.txt since the image was built, then set up the database.
     command: >
       sh -c "pip install --quiet --root-user-action=ignore -r requirements.txt &&
@@ -26,6 +28,8 @@ services:
     image: audio4-frontend:dev
     build:
       target: dev
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
     # Sync node_modules with package.json on start, so new dependencies don't need a rebuild.
     command: sh -c "npm install --no-audit --no-fund && npm run dev"
     volumes:

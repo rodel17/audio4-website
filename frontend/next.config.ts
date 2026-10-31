@@ -10,6 +10,7 @@ const apiUrl = process.env.API_URL ?? "http://localhost:8000";
 const nextConfig: NextConfig = {
   // Produces a minimal self-contained server in .next/standalone for the prod image.
   output: "standalone",
+  poweredByHeader: false,
   // Hide the floating "N" dev badge; compile and runtime errors are still shown.
   devIndicators: false,
   ...(pollIntervalMs && { watchOptions: { pollIntervalMs } }),

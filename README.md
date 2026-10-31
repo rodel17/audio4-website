@@ -8,7 +8,10 @@ Every piece of public text, the catalog, and the company details are editable in
 .
 ├── compose.yaml            # services shared by dev and prod: db, redis, backend, frontend
 ├── compose.override.yaml   # dev settings (hot reload), loaded automatically
-├── compose.prod.yaml       # prod settings (optimized images, restart policy)
+├── compose.prod.yaml       # prod settings: Caddy HTTPS, restart policy, log limits
+├── caddy/Caddyfile         # HTTPS reverse proxy config (production)
+├── scripts/backup.sh       # database + uploads backup (production)
+├── DEPLOY.md               # step-by-step server deployment
 ├── .env.example
 ├── backend/                # FastAPI + SQLAlchemy  → http://localhost:8000 (API docs at /docs)
 └── frontend/               # Next.js public site + /admin  → http://localhost:3000
@@ -74,16 +77,20 @@ save is live (Next.js and uvicorn reload within a second or two).
 
 ## Production
 
+Step-by-step server setup (domain, Oracle Cloud, firewall, `.env`, backups): see **[DEPLOY.md](DEPLOY.md)**.
+
 ```bash
 docker compose -f compose.yaml -f compose.prod.yaml up -d --build
 ```
 
-Before going live, set in `.env`: a strong `POSTGRES_PASSWORD`, `ADMIN_EMAIL`/`ADMIN_PASSWORD`,
-`COOKIE_SECURE=true` (when served over HTTPS), and SMTP settings. Back up the `postgres-data` and
-`uploads` volumes.
-
-- Frontend runs the Next.js standalone server as a non-root user.
-- Backend runs uvicorn with 2 workers as a non-root user.
+- **Caddy** is the only service reachable from outside (ports 80/443). It gets the HTTPS certificate for
+  `SITE_ADDRESS` automatically, redirects HTTP to HTTPS, and adds security headers ([caddy/Caddyfile](caddy/Caddyfile)).
+- Backend, frontend, Postgres and Redis publish **no** ports in production; in development
+  `compose.override.yaml` publishes 3000, 8000 and 5433 (localhost) for local access.
+- Production refuses to start without `SITE_ADDRESS` and `POSTGRES_PASSWORD`; the admin cookie is
+  HTTPS-only (`COOKIE_SECURE` defaults to `true`).
+- Container logs are capped (3 × 10 MB per service). `scripts/backup.sh` backs up the database and uploads.
+- Frontend and backend run as non-root users; the backend runs uvicorn with 2 workers.
 - The `/api` and `/uploads` proxy target (`API_URL`) is fixed when the frontend image is built.
 
 ## How the pieces talk
