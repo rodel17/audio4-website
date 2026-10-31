@@ -122,13 +122,66 @@ docker compose exec -T backend tar -C /data -xzf - < $B/uploads.tar.gz
 docker compose exec redis redis-cli incr cache:version    # clear cached pages
 ```
 
-## Updating the site
+## 7. Automatic deploys (CI/CD)
+
+After this one-time setup, every push to `main` that passes CI is deployed automatically by the
+**Deploy to production** job in [.github/workflows/ci.yml](.github/workflows/ci.yml). Pushes to `staging`
+and pull requests are tested but never deployed.
+
+GitHub logs in with a **dedicated deploy key** that the server only allows to run the deploy
+(pull + `scripts/deploy.sh`): no shell, no file access, no port forwarding. If the key ever leaked,
+the worst anyone could do is redeploy what's already on GitHub.
+
+**a. Create the deploy key** (on your PC, PowerShell). Press Enter at both passphrase prompts, since
+GitHub can't type a passphrase:
+
+```powershell
+ssh-keygen -t ed25519 -f "$HOME\.ssh\audio4_deploy" -C "github-actions-deploy"
+Get-Content "$HOME\.ssh\audio4_deploy.pub"
+```
+
+**b. Allow it on the server, restricted to deploying** (on the server). Replace `<PUBLIC KEY>` with the
+whole line printed above (`ssh-ed25519 AAAA… github-actions-deploy`), and note the `>>` (append, don't replace):
+
+```bash
+echo 'restrict,command="cd /home/ubuntu/audio4 && git pull --ff-only --quiet && sh scripts/deploy.sh" <PUBLIC KEY>' >> ~/.ssh/authorized_keys
+```
+
+**c. Test it** (on your PC), once `scripts/deploy.sh` is on `main` (i.e. after your first merge to `main`
+containing it; until then the server answers `cannot open scripts/deploy.sh`, which means the key itself works).
+This runs a real deploy and prints its progress; it can't open a shell:
+
+```powershell
+ssh -T -i "$HOME\.ssh\audio4_deploy" ubuntu@<server-ip>
+```
+
+**d. Add the secrets to GitHub:** repository **Settings → Environments → New environment** named
+`production`. Under **Deployment branches and tags**, choose *Selected branches* and add `main`. Then add:
+
+| Kind | Name | Value |
+|------|------|-------|
+| Secret | `DEPLOY_SSH_KEY` | the whole **private** key: `Get-Content "$HOME\.ssh\audio4_deploy"` (from `-----BEGIN` to `END … KEY-----`) |
+| Secret | `DEPLOY_HOST` | the server's public IP |
+| Secret | `DEPLOY_USER` | `ubuntu` |
+| Secret | `DEPLOY_KNOWN_HOSTS` | the server's host key line, from `ssh-keyscan -t ed25519 <server-ip>` |
+| Variable | `SITE_URL` | `https://<your domain>` (no trailing slash) |
+
+Optional: under **Required reviewers**, add yourself to approve each deploy by hand before it runs.
+
+**e. Release:** merge `staging` into `main` and push. In the **Actions** tab, the run shows the three test
+jobs, then **Deploy to production**, which finishes by checking the live site.
+
+## Updating the site by hand
+
+If automatic deploys aren't set up, or to redeploy manually:
 
 ```bash
 cd ~/audio4
-git pull
-docker compose up -d --build
+./scripts/deploy.sh
 ```
+
+It pulls `main`, rebuilds what changed, waits until the backend is healthy, and prints the backend's
+logs if anything fails.
 
 ## Troubleshooting
 
@@ -139,4 +192,7 @@ docker compose up -d --build
 | `required variable SITE_ADDRESS is missing` | `.env` is missing or `SITE_ADDRESS` is empty |
 | Backend keeps restarting, "password authentication failed" | `POSTGRES_PASSWORD` was changed after the database was created. Change it inside Postgres too: `docker compose exec db psql -U audio4 -d audio4 -c "ALTER USER audio4 PASSWORD '...';"` |
 | Admin sign-in loops back to the sign-in page | The site isn't on HTTPS (the session cookie is HTTPS-only) |
+| Deploy job fails at "Deploy on the server" with `Permission denied (publickey)` | The deploy key line in `~/.ssh/authorized_keys` is missing or has a typo, or `DEPLOY_SSH_KEY` isn't the complete private key |
+| Deploy job fails with `Host key verification failed` | `DEPLOY_KNOWN_HOSTS` doesn't match the server (e.g. the server was recreated); run `ssh-keyscan` again |
+| Deploy says "the server's copy has local changes" | Files in `~/audio4` were edited on the server. Check with `git status` there, then undo with `git checkout -- <file>` |
 | Forgot the admin password | `docker compose exec backend python -m app.manage reset-password you@yourcompany.com --password '...'` |

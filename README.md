@@ -1,6 +1,6 @@
 # Audio 4 Design N Technology Corp. — website + CMS
 
-[![CI](https://github.com/rodel17/audio4-website/actions/workflows/ci.yml/badge.svg)](https://github.com/rodel17/audio4-website/actions/workflows/ci.yml)
+[![CI/CD](https://github.com/rodel17/audio4-website/actions/workflows/ci.yml/badge.svg)](https://github.com/rodel17/audio4-website/actions/workflows/ci.yml)
 
 A product catalog for an electronics shop (sound systems, CCTV, electronics) with an admin CMS.
 There is **no cart and no prices**: visitors browse items and specs, then contact sales for a quotation.
@@ -77,15 +77,18 @@ save is live (Next.js and uvicorn reload within a second or two).
   not altered. After changing a model, add a migration tool (Alembic) or recreate the dev database
   with `docker compose down -v` (this deletes all data).
 
-## Tests and CI
+## Tests and CI/CD
 
-**CI** (GitHub Actions, [.github/workflows/ci.yml](.github/workflows/ci.yml)) runs on every push to `main` and every pull request:
+**GitHub Actions** ([.github/workflows/ci.yml](.github/workflows/ci.yml)) tests every push to `main` and `staging` and every pull request:
 
 | Job | What it checks |
 |-----|----------------|
 | Backend tests | 39 API tests (pytest) against real Postgres and Redis service containers |
 | Frontend | `npm run typecheck` and a production `next build` |
 | Production images | Compose files are valid; backend and frontend `prod` images build |
+| **Deploy to production** | Pushes to `main` only, after all tests pass: SSHes to the server with a restricted deploy key, runs `scripts/deploy.sh`, then checks the live site |
+
+Release flow: work on `staging` → merge into `main` → deployed automatically. One-time setup: [DEPLOY.md, step 7](DEPLOY.md#7-automatic-deploys-cicd).
 
 **Run the backend tests locally** (uses a separate `audio4_test` database and Redis database 15; your dev data is untouched):
 
@@ -114,7 +117,8 @@ docker compose -f compose.yaml -f compose.prod.yaml up -d --build
   `compose.override.yaml` publishes 3000, 8000 and 5433 (localhost) for local access.
 - Production refuses to start without `SITE_ADDRESS` and `POSTGRES_PASSWORD`; the admin cookie is
   HTTPS-only (`COOKIE_SECURE` defaults to `true`).
-- Container logs are capped (3 × 10 MB per service). `scripts/backup.sh` backs up the database and uploads.
+- Container logs are capped (3 × 10 MB per service). `scripts/backup.sh` backs up the database and uploads;
+  `scripts/deploy.sh` pulls `main` and redeploys (used by CI/CD).
 - Frontend and backend run as non-root users; the backend runs uvicorn with 2 workers.
 - The `/api` and `/uploads` proxy target (`API_URL`) is fixed when the frontend image is built.
 
