@@ -1,14 +1,17 @@
-name: CI
+name: CI/CD
 
+# Tests run on pushes to main and staging and on pull requests.
+# Pushes to main that pass every test are deployed to production (the "deploy" job).
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
   pull_request:
 
-# A newer push to the same branch cancels the run still in progress.
+# A newer push to the same branch cancels the run still in progress, except on main,
+# where a deploy must never be interrupted halfway.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
@@ -105,3 +108,49 @@ jobs:
           push: false
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,scope=frontend,mode=max
+
+  deploy:
+    name: Deploy to production
+    needs: [backend, frontend, docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'rodel17/audio4-website'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Secrets and the site URL live in the "production" environment (Settings -> Environments).
+    environment:
+      name: production
+      url: ${{ vars.SITE_URL }}
+    # Deploys run one at a time, in order.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - name: Set up SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      # The deploy key is restricted on the server to running scripts/deploy.sh only,
+      # so no command is passed here.
+      - name: Deploy on the server
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: >-
+          ssh -T -i ~/.ssh/deploy_key
+          -o BatchMode=yes -o StrictHostKeyChecking=yes
+          -o ServerAliveInterval=30 -o ConnectTimeout=30
+          "$DEPLOY_USER@$DEPLOY_HOST"
+
+      - name: Check the live site
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: |
+          for path in /api/health / /products /admin/login; do
+            curl -fsS --retry 10 --retry-delay 6 --retry-all-errors -o /dev/null \
+              -w "$path -> %{http_code} in %{time_total}s\n" "$SITE_URL$path"
+          done
