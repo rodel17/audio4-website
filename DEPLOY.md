@@ -160,7 +160,7 @@ ssh -T -i "$HOME\.ssh\audio4_deploy" ubuntu@<server-ip>
 
 | Kind | Name | Value |
 |------|------|-------|
-| Secret | `DEPLOY_SSH_KEY` | the whole **private** key: `Get-Content "$HOME\.ssh\audio4_deploy"` (from `-----BEGIN` to `END … KEY-----`) |
+| Secret | `DEPLOY_SSH_KEY` | the whole **private** key. Copy it exactly with `Get-Content -Raw "$HOME\.ssh\audio4_deploy" \| Set-Clipboard`, then paste (copying from the terminal window can break the line breaks) |
 | Secret | `DEPLOY_HOST` | the server's public IP |
 | Secret | `DEPLOY_USER` | `ubuntu` |
 | Secret | `DEPLOY_KNOWN_HOSTS` | the server's host key line, from `ssh-keyscan -t ed25519 <server-ip>` |

@@ -128,11 +128,16 @@ jobs:
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        # tr -d '\r' removes Windows line endings, which make a pasted key unreadable.
         run: |
           install -m 700 -d ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          if ! ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null; then
+            echo '::error::DEPLOY_SSH_KEY is not a valid private key. Re-copy the whole private key file (DEPLOY.md, step 7d).'
+            exit 1
+          fi
+          printf '%s\n' "$KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
 
       # The deploy key is restricted on the server to running scripts/deploy.sh only,
       # so no command is passed here.
